@@ -1,0 +1,35 @@
+{% load static %}
+<html>
+	<head>
+		<title>File Explorer</title>
+		<link rel="stylesheet" href="{% static 'jstree/themes/default/style.min.css' %}" />
+	</head>
+	<body>
+		<div id="jstree">
+		</div>
+		<script src="https://cdnjs.cloudflare.com/ajax/libs/jquery/1.12.1/jquery.min.js"></script>
+  		<script src="{% static 'jstree/jstree.min.js' %}"></script>
+		<script>
+			$(function () {
+				$('#jstree').jstree({
+				  "core" : {
+				    "animation" : 0,
+				    "check_callback" : true,
+				    "themes" : { "stripes" : true },
+				    'data' : {
+				      'url' : function (node) {
+				        return node.id === '#' ?
+				          '{% url "get_roots" %}' : '{% url "get_children" %}?id='+node.id;
+				      },
+				      'data' : function (node) {
+				        return { 'id' : node.id };
+				      }
+				    }
+				  },
+				  "plugins" : [
+				  ]
+				});
+			});
+		</script>
+	</body>
+</html>
