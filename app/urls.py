@@ -6,4 +6,5 @@ urlpatterns = [
     path('', views.index, name='index'),
 	path('get_roots', views.get_roots, name='get_roots'),
 	path('get_children', views.get_children, name='get_children'),
+	path('get_listdata', views.get_listdata, name='get_listdata'),
 ]
