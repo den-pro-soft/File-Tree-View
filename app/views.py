@@ -5,7 +5,7 @@ from django.http import JsonResponse
 from django.views.decorators.csrf import csrf_exempt
 
 
-root_xml = xml.etree.ElementTree.parse('app/assets/test.xml').getroot()
+root_xml = xml.etree.ElementTree.parse('app/static/app/assets/test.xml').getroot()
 
 def index(request):
 	return render(request, 'app/index.html')
@@ -53,32 +53,37 @@ def get_children(request):
 
 def get_listdata(request):
 	node_id = request.GET.get('node_id', None)
-	if node_id != 'rootdir':
-		paths = node_id[5:].split('-')
-		item = root_xml
+	paths = node_id[5:].split('-')
+	item = root_xml
+	if paths != ['']:
 		for path in paths:
 			item = item[int(path)]
-	else:
-		item = root_xml
 	data = []
 	for idx, child in enumerate(item):
 		if child.tag == 'file':
+			ext = ''
+			for ex in child.attrib['name'][::-1]:
+				if ex == '.':
+					break;
+				ext += ex
+
+			if len(ext) == len(child.attrib['name']) or len(ext) >= 4:
+				ext = 'txEoN'
 			data.append({
-				"icon" : "icon",
+				"icon" : "/static/app/assets/file.png",
 				"id" : '%s-%s' % (node_id, str(idx)),
 				"filename" : child.attrib['name'],
 				"size" : child.attrib['size'],
-				"type" : 'file',
+				"type" : ext[::-1],
 				"last modified" : child.attrib['modify_time'],
 			})
 		else:
 			data.append({
-				"icon" : "icon",
+				"icon" : "/static/app/assets/folder.png",
 				"id" : '%s-%s' % (node_id, str(idx)),
 				"filename" : child.attrib['name'],
 				"size" : ' ',
 				"type" : 'Directory',
-				"last modified" : ' ',
+				"last modified" : '',
 			})
-
 	return JsonResponse(data, safe=False)

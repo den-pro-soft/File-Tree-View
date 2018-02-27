@@ -24,3 +24,18 @@ body {
 	background-color: white;
     height: 100%;
 }
+
+#total_size {
+	text-align: center;
+	font-size: 30px;
+}
+
+#total_list_size {
+	text-align: center;
+	margin-left: -50px;
+	font-size: 30px;
+}
+
+.bootstrap-table {
+    height: 90%;
+}
