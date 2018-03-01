@@ -47,6 +47,79 @@
 				var total_size = 0;
 				var total_list_size = 0;
 				var checkedRows = [];
+				var current_sel_tree;
+
+				function display_rpanel(result) {
+					$.each(result, function(key, value) {
+						$("<tr />")
+							.append(
+								$('<td/>', {
+									class: 'bs-checkbox'
+								})
+								.append(
+									$("<input/>", {
+										type: 'checkbox',
+										name: 'btSelectItem',
+										id: function () { return value['id'] = value['id'].replace("tree", "check")},
+										style: 'margin-top: 10px !important;',
+										dataIndex: key,
+										checked: function() {
+											if (value['selected'] != false){
+												return true;
+											}
+											else {
+												var tmp_id = value['id'].replace("check", "tree");
+												if ($.inArray(tmp_id, checkedRows) != -1){
+													return true;
+												}
+												else {
+													return false;
+												}
+											}
+										},
+										click: function() {
+											var tmp_check = value['id'].replace("check", "tree");
+
+											$.jstree.reference('#jstree').check_node(tmp_check);
+
+											if ($(this).is(':checked')) {
+												if($.isNumeric(value['size']))
+													total_size += parseInt(value['size']);
+											}
+											else {
+												if($.isNumeric(value['size']))
+													total_size -= parseInt(value['size']);
+											}
+											$("#total_size").html("Total Size: " + total_size);
+										}
+									})
+								)
+							)
+							.append(
+								$("<td />")
+								.append(
+									$("<img/>", {
+										src: value['icon'],
+										name: "icon",
+										style: "width: 3rem;"
+									})
+								)
+							)
+							.append(
+								$("<td />").html(value['filename'])
+							)
+							.append(
+								$("<td />").html(value['size'])
+							)
+							.append(
+								$("<td />").html(value['type'])
+							)
+							.append(
+								$("<td />").html(value['last modified'])
+							)
+							.appendTo("#eventsTable tbody");
+					});
+				}
 
 				$('#jstree')
 					.jstree({
@@ -63,70 +136,26 @@
 					  	},
 						"checkbox" : {
 							"keep_selected_style" : false,
-					      	whole_node : false,
-					      	tie_selection : false,
-							three_state : false
+					      	"whole_node" : false,
+					      	"tie_selection" : false,
+							"three_state" : true
 						},
 						"plugins" : [ "checkbox" ]
 					})
 					.on('select_node.jstree', function (e, data) {
-						$("#eventsTable tbody").empty();
-						$.ajax({
-							url: '{% url "get_listdata" %}?node_id='+data.node.id,
-							success: function(result){
-							  	$.each(result, function(key, value) {
-									var bef_str = "{% static ";
-									var lst_str = " %}";
+						var checked_state = false;
 
-									$("<tr />")
-										.append(
-											$('<td/>', {
-												class: 'bs-checkbox'
-											})
-											.append(
-												$("<input/>", {
-													type: 'checkbox',
-													name: 'btSelectItem',
-													style: 'margin-top: 10px !important;',
-													dataIndex: key,
-													click: function() {
-														if ($(this).is(':checked')) {
-															if($.isNumeric(value['size']))
-																total_size += parseInt(value['size']);
-														}
-														else {
-															if($.isNumeric(value['size']))
-																total_size -= parseInt(value['size']);
-														}
-														$("#total_size").html("Total Size: " + total_size);
-													}
-												})
-											)
-										)
-										.append(
-									  		$("<td />")
-											.append(
-												$("<img/>", {
-													src: value['icon'],
-													name: "icon",
-													style: "width: 10%"
-												})
-											)
-										)
-										.append(
-									  		$("<td />").html(value['filename'])
-										)
-										.append(
-										  	$("<td />").html(value['size'])
-										)
-										.append(
-									  		$("<td />").html(value['type'])
-										)
-										.append(
-									  		$("<td />").html(value['last modified'])
-										)
-										.appendTo("#eventsTable tbody");
-							   	});
+						current_sel_tree = data.node.id;
+						$("#eventsTable tbody").empty();
+						total_size = 0;
+
+						if ($.inArray(data.node.id, checkedRows) != -1)
+							checked_state = true;
+
+						$.ajax({
+							url: '{% url "get_listdata" %}?checked=' + checked_state + '&node_id=' + data.node.id,
+							success: function(result){
+								display_rpanel(result);
 
 								$('#eventsTable tbody tr input[type=checkbox]').click(function(event) {
 							        if (event.target.type !== 'checkbox') {
@@ -143,18 +172,25 @@
 						});
 				})
 				.on('loaded.jstree', function() {
-					$.jstree.reference('#jstree').select_node('tree-#');
+					$.jstree.reference('#jstree').select_node('tree-');
+					current_sel_tree = "tree-";
 				})
 				.on("check_node.jstree uncheck_node.jstree", function(e, data) {
 					total_list_size = 0;
 					var check_list = $("#jstree").jstree("get_checked", true);
+					var check_triger_id = data.node.id.replace("tree", "check");
+					var check_status = data.node.state.checked;
+					checkedRows = [];
+					$("#" + check_triger_id).trigger("click");
 
 					if(check_list.length) {
 						$.each(check_list, function(key, value) {
+							checkedRows.push(value.id);
 							$.ajax({
-								url: '{% url "get_listdata" %}?node_id='+value.id,
+								url: '{% url "get_listdata" %}?checked=true&node_id=' + value.id,
 								success: function(result){
 								  	$.each(result, function(key, value) {
+										checkedRows.push(value['id']);
 										if($.isNumeric(value['size']))
 										{
 											total_list_size += parseInt(value['size']);
@@ -169,6 +205,15 @@
 						$("#total_list_size").html("Total List Size: " + total_list_size);
 					}
 
+					if(current_sel_tree == data.node.id) {
+						$("#eventsTable tbody").empty();
+						$.ajax({
+							url: '{% url "get_listdata" %}?checked=' + check_status + '&node_id=' + current_sel_tree,
+							success: function(result){
+								display_rpanel(result);
+							}
+						});
+					}
 				})
 			});
 		</script>

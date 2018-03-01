@@ -13,7 +13,7 @@ def index(request):
 def get_roots(request):
 	result_data = []
 	data = [{
-		"id" : 'tree-#',
+		"id" : 'tree-',
 		"text" : root_xml.attrib['name'],
 		'state' : {
            'opened' : True,
@@ -53,12 +53,16 @@ def get_children(request):
 
 def get_listdata(request):
 	node_id = request.GET.get('node_id', None)
+	checked_status = True if request.GET.get('checked', None) == 'true' else False
 	paths = node_id[5:].split('-')
 	item = root_xml
 	if paths != ['']:
 		for path in paths:
 			item = item[int(path)]
 	data = []
+
+	if node_id == "tree-":
+		node_id = "tree"
 	for idx, child in enumerate(item):
 		if child.tag == 'file':
 			ext = ''
@@ -76,6 +80,7 @@ def get_listdata(request):
 				"size" : child.attrib['size'],
 				"type" : ext[::-1],
 				"last modified" : child.attrib['modify_time'],
+				"selected" : checked_status
 			})
 		else:
 			data.append({
@@ -85,5 +90,6 @@ def get_listdata(request):
 				"size" : ' ',
 				"type" : 'Directory',
 				"last modified" : '',
+				"selected" : checked_status
 			})
 	return JsonResponse(data, safe=False)
