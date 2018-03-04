@@ -17,7 +17,7 @@ def get_roots(request):
 		"id" : TREE_ELEMENTID_PREFIX,
 		"text" : root_xml.attrib['name'],
 		'state' : {
-           'opened' : True,
+           'opened' : False,
            'selected' : False
         },
 	}]
@@ -80,20 +80,19 @@ def get_listdata(request):
 		node_id = "tree"
 	for idx, child in enumerate(item):
 		if child.tag == 'file':
-			ext = ''
-			for ex in child.attrib['name'][::-1]:
-				if ex == '.':
-					break;
-				ext += ex
 
-			if len(ext) == len(child.attrib['name']) or len(ext) >= 4:
-				ext = 'txEoN'
+			ext = child.attrib['name'].split('.')
+			extens = ''
+			if len(ext) >= 2:
+				if child.attrib['name'][0] != '.':
+					extens = ext[1]
+
 			data.append({
 				"icon" : "/static/app/assets/file.png",
 				"id" : '%s-%s' % (node_id, str(idx)),
 				"filename" : child.attrib['name'],
 				"size" : child.attrib['size'],
-				"type" : ext[::-1],
+				"type" : extens,
 				"last modified" : child.attrib['modify_time'],
 				"selected" : checked_status
 			})

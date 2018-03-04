@@ -205,6 +205,7 @@
 					$.ajax({
 						url: '{% url "get_listdata" %}?checked=' + checked_state + '&node_id=' + node_id,
 						success: function(result){
+							$("#eventsTable tbody").empty();
 							display_rpanel(result);
 
 							$('#eventsTable tbody tr input[type=checkbox]').click(function(event) {
@@ -244,7 +245,7 @@
 					})
 					.on('select_node.jstree', function (e, data) {
 						var checked_state = false;
-
+						data.instance.toggle_node(data.node);
 						current_sel_tree = data.node.id;
 						$("#eventsTable tbody").empty();
 						//$("#total_size").html("Total Size: " + total_size);
@@ -296,7 +297,6 @@
 					}
 
 					if(current_sel_tree == data.node.id) {
-						$("#eventsTable tbody").empty();
 						get_data_display(check_status, data.node.id);
 					}
 				})
