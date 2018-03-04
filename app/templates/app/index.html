@@ -19,10 +19,6 @@
 					<div id="jstree"></div>
 				</div>
 				<div class="col-md-8 data_table">
-					<div class="row">
-						<div class="col-md-6" id="total_list_size">Total List Size: 0</div>
-						<div class="col-md-6" id="total_size">Total Size: 0</div>
-					</div>
 					<table
 						id="eventsTable"
 					   	data-toggle="table">
@@ -41,56 +37,138 @@
 				  	</table>
 				</div>
 			</div>
+			<div class="row" style = "margin-top: 20px;">
+				<div class="col-md-4 sel_files">
+					<span id="total_files_size">Total Size: 0</span>
+					<span id="total_files_cnt">Total files: 0</span>
+				</div>
+				<div class="col-md-4 sel_files">
+					<span id="selected_file_size">Selected file Size: 0</span>
+					<span id="selected_files">Selected files: 0</span>
+				</div>
+				<div class="col-md-4" id="total_size"></div>
+			</div>
 		</div>
 		<script>
 			$(function () {
-				var total_size = 0;
-				var total_list_size = 0;
+				var file_sel_size = 0;
+				var file_sel_cnt = 0;
 				var checkedRows = [];
 				var current_sel_tree;
 
+				function get_checked(value) {
+					if (value['selected'] != false){
+						return true;
+					}
+					else {
+						var tmp_id = value['id'].replace("check", "tree");
+						if ($.inArray(tmp_id, checkedRows) != -1){
+							return true;
+						}
+						else {
+							return false;
+						}
+					}
+				}
+
+				function change_tr_setting(value) {
+					var ico_id = value['id'].replace("check", "check_icon");
+					var tr_id = value['id'].replace("check", "tr_icon");
+					var is_checked = value['selected'];
+					var css_setting = is_checked ? {'color': 'white', 'background-color': '#418bca'} : {'color': 'black', 'background-color': 'white'};
+
+					$("#" + ico_id)
+						.removeClass()
+						.addClass( function () {
+							return is_checked ? 'state-icon glyphicon glyphicon-check' : 'state-icon glyphicon glyphicon-unchecked';
+						});
+
+					$("#" + tr_id)
+						.css(css_setting);
+				}
+
+				function get_exact_filesize(fsize) {
+					if(fsize == 0)
+						return fsize;
+					if(fsize < 1024)
+						return fsize.toFixed(3) + "KB";
+					fsize = fsize / 1024;
+					if(fsize < 1024)
+						return fsize.toFixed(3) + "MB";
+					fsize = fsize / 1024;
+					if(fsize < 1024)
+						return fsize.toFixed(3) + "GB";
+					return (fsize / 1024).toFixed(3) + "TB";
+				}
+
+				function set_file_info(check_status, node_id) {
+					$.ajax({
+						url: '{% url "get_all_files" %}?node_id=' + node_id,
+						success: function(result){
+							if (check_status){
+								file_sel_size += result['selNode_size'];
+								file_sel_cnt += result['selfile_count'];
+							}
+							else {
+								file_sel_size -= result['selNode_size'];
+								file_sel_cnt -= result['selfile_count'];
+							}
+							$("#selected_file_size").html("Selected file size: " + get_exact_filesize(file_sel_size));
+							$("#selected_files").html("Selected files: " + file_sel_cnt);
+						}
+					});
+				}
+
 				function display_rpanel(result) {
 					$.each(result, function(key, value) {
-						$("<tr />")
+						$("<tr />", {
+							id: function () { return value['id'].replace("tree", "tr_icon")}
+						})
 							.append(
 								$('<td/>', {
 									class: 'bs-checkbox'
 								})
 								.append(
+									$("<span/>", {
+										class: 'state-icon glyphicon glyphicon-unchecked',
+										id: function () { return value['id'].replace("tree", "check_icon")}
+									})
+								)
+								.append(
 									$("<input/>", {
 										type: 'checkbox',
 										name: 'btSelectItem',
+										class: 'hidden',
 										id: function () { return value['id'] = value['id'].replace("tree", "check")},
 										style: 'margin-top: 10px !important;',
 										dataIndex: key,
-										checked: function() {
-											if (value['selected'] != false){
-												return true;
-											}
-											else {
-												var tmp_id = value['id'].replace("check", "tree");
-												if ($.inArray(tmp_id, checkedRows) != -1){
-													return true;
-												}
-												else {
-													return false;
-												}
-											}
+										checked: function () {
+											return value['selected'] = get_checked(value)
 										},
 										click: function() {
+											value['selected']= !value['selected'];
 											var tmp_check = value['id'].replace("check", "tree");
+											change_tr_setting(value);
 
-											$.jstree.reference('#jstree').check_node(tmp_check);
+											if(value['type'] != "Directory"){
+												if( value['selected'] ){
+													file_sel_size += parseInt(value['size']);
+													file_sel_cnt ++;
+												}
+												else {
+													file_sel_size -= parseInt(value['size']);
+													file_sel_cnt --;
+												}
+												$("#selected_file_size").html("Selected file size: " + get_exact_filesize(file_sel_size));
+												$("#selected_files").html("Selected files: " + file_sel_cnt);
+											}
 
-											if ($(this).is(':checked')) {
-												if($.isNumeric(value['size']))
-													total_size += parseInt(value['size']);
+											if( value['selected'] ) {
+												$.jstree.reference('#jstree').check_node(tmp_check);
 											}
 											else {
-												if($.isNumeric(value['size']))
-													total_size -= parseInt(value['size']);
+												$.jstree.reference('#jstree').uncheck_node(tmp_check);
 											}
-											$("#total_size").html("Total Size: " + total_size);
 										}
 									})
 								)
@@ -118,9 +196,31 @@
 								$("<td />").html(value['last modified'])
 							)
 							.appendTo("#eventsTable tbody");
+						change_tr_setting(value);
 					});
+
 				}
 
+				function get_data_display(checked_state, node_id) {
+					$.ajax({
+						url: '{% url "get_listdata" %}?checked=' + checked_state + '&node_id=' + node_id,
+						success: function(result){
+							display_rpanel(result);
+
+							$('#eventsTable tbody tr input[type=checkbox]').click(function(event) {
+								if (event.target.type !== 'checkbox') {
+									$(':checkbox', this).trigger('click');
+								}
+							});
+
+							$('#eventsTable tbody tr').click(function(event) {
+								if (event.target.type !== 'checkbox') {
+									$(':checkbox', this).trigger('click');
+								}
+							});
+						}
+					});
+				}
 				$('#jstree')
 					.jstree({
 					  	"core" : {
@@ -131,7 +231,7 @@
 						      	'url' : function (node) {
 							        return node.id === '#' ?
 						          		'{% url "get_roots" %}' : '{% url "get_children" %}?id='+node.id;
-						      	}
+						      	},
 						    }
 					  	},
 						"checkbox" : {
@@ -147,72 +247,57 @@
 
 						current_sel_tree = data.node.id;
 						$("#eventsTable tbody").empty();
-						total_size = 0;
+						//$("#total_size").html("Total Size: " + total_size);
 
 						if ($.inArray(data.node.id, checkedRows) != -1)
 							checked_state = true;
 
-						$.ajax({
-							url: '{% url "get_listdata" %}?checked=' + checked_state + '&node_id=' + data.node.id,
-							success: function(result){
-								display_rpanel(result);
-
-								$('#eventsTable tbody tr input[type=checkbox]').click(function(event) {
-							        if (event.target.type !== 'checkbox') {
-							            $(':checkbox', this).trigger('click');
-							        }
-							    });
-
-							  	$('#eventsTable tbody tr').click(function(event) {
-								    if (event.target.type !== 'checkbox') {
-								      $(':checkbox', this).trigger('click');
-								    }
-							  	});
-					    	}
-						});
+						get_data_display(checked_state, data.node.id);
 				})
 				.on('loaded.jstree', function() {
 					$.jstree.reference('#jstree').select_node('tree-');
 					current_sel_tree = "tree-";
+					$.ajax({
+						url: '{% url "get_all_files" %}?node_id=tree-',
+						success: function(result){
+							$("#total_files_size").html("Total size: " + get_exact_filesize(result['selNode_size']));
+							$("#total_files_cnt").html("Totla files: " + result['selfile_count']);
+						}
+					});
 				})
 				.on("check_node.jstree uncheck_node.jstree", function(e, data) {
-					total_list_size = 0;
 					var check_list = $("#jstree").jstree("get_checked", true);
 					var check_triger_id = data.node.id.replace("tree", "check");
 					var check_status = data.node.state.checked;
+					var get_rpanl_checked=$("#" + check_triger_id).is(":checked");
+
+					if(data.node.state.checked != get_rpanl_checked)
+						$("#" + check_triger_id).trigger("click");
 					checkedRows = [];
-					$("#" + check_triger_id).trigger("click");
+
+					set_file_info(check_status, data.node.id);
 
 					if(check_list.length) {
 						$.each(check_list, function(key, value) {
 							checkedRows.push(value.id);
+
 							$.ajax({
 								url: '{% url "get_listdata" %}?checked=true&node_id=' + value.id,
 								success: function(result){
 								  	$.each(result, function(key, value) {
 										checkedRows.push(value['id']);
-										if($.isNumeric(value['size']))
-										{
-											total_list_size += parseInt(value['size']);
-										}
 									});
-									$("#total_list_size").html("Total List Size: " + total_list_size);
 								}
 							});
 						});
 					}
 					else {
-						$("#total_list_size").html("Total List Size: " + total_list_size);
+						$("#selected_file_size").html("Selected file size: " + get_exact_filesize(file_sel_size));
 					}
 
 					if(current_sel_tree == data.node.id) {
 						$("#eventsTable tbody").empty();
-						$.ajax({
-							url: '{% url "get_listdata" %}?checked=' + check_status + '&node_id=' + current_sel_tree,
-							success: function(result){
-								display_rpanel(result);
-							}
-						});
+						get_data_display(check_status, data.node.id);
 					}
 				})
 			});
