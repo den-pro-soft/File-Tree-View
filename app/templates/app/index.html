@@ -238,12 +238,16 @@
 						}
 					}
 
+					$('.loading-container').css('display', 'show');
+					$('.main_content').css('display', 'none');
 					$.ajax({
 					   type: "POST",
 					   data: {sel_info:req_array},
 					   url: '{% url "usersel_json_file" %}',
 					   success: function(response){
-					     alert(response);
+		   					$('.loading-container').css('display', 'none');
+		   					$('.main_content').css('display', 'show');
+					     	alert(response);
 					   }
 					});
 				});
