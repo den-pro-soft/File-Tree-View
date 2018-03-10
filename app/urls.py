@@ -8,4 +8,6 @@ urlpatterns = [
 	path('get_children', views.get_children, name='get_children'),
 	path('get_listdata', views.get_listdata, name='get_listdata'),
 	path('get_all_files', views.get_all_files, name='get_all_files'),
+	path('get_whole_structure', views.get_whole_structure, name='get_whole_structure'),
+	path('usersel_json_file', views.usersel_json_file, name='usersel_json_file'),
 ]

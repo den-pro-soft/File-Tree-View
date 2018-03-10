@@ -4,6 +4,16 @@ import xml.etree.ElementTree
 from django.http import JsonResponse
 from django.views.decorators.csrf import csrf_exempt
 
+# -*- coding: utf-8 -*-
+import json
+
+# Make it work for Python 2+3 and with Unicode
+import io
+
+try:
+    to_unicode = unicode
+except NameError:
+    to_unicode = str
 
 root_xml = xml.etree.ElementTree.parse('app/static/app/assets/test.xml').getroot()
 TREE_ELEMENTID_PREFIX = 'tree-'
@@ -139,11 +149,88 @@ def get_all_files(request):
 	}
 	return JsonResponse(result, safe=False)
 
-# def get_filesize(request):
-# 	ode_id = request.GET.get('node_id', None)
-# 	paths = node_id[5:].split('-')
-# 	item = root_xml
-# 	if paths != ['']:
-# 		for path in paths:
-# 			item = item[int(path)]
-#
+#-----This is Searching Algorithm-----------------------
+
+stack = []
+json_result = []
+def getxmlTojson(element, size):
+	global json_result
+	global stack
+
+	files = element.findall('file')
+	for f in files:
+		size += sum([int(f.attrib['size'])])
+	directories = element.findall('directory')
+	for idx, directory in enumerate(directories):
+		stack.append(idx)
+		size += getxmlTojson(directory, 0)
+		stack.pop()
+
+	field_id = TREE_ELEMENTID_PREFIX
+
+	for idx, d in enumerate(stack):
+		if idx:
+			field_id += "-"
+		field_id += str(d)
+	json_result.append({
+		'id' : field_id,
+		'name' : element.attrib['name'],
+		'size' : size,
+		'type' : 'Directory',
+		'file_cnt' : len(files)
+	})
+	for idx, f in enumerate(files):
+		json_result.append({
+			'id' : field_id + "-" + str(len(directories) + idx),
+			'name' : f.attrib['name'],
+			'size' : f.attrib['size'],
+			'type' : 'file',
+			'file_cnt' : 0
+		})
+	return size
+#----------------------------------------------
+
+def get_whole_structure(request):
+	global json_result
+
+	json_result = []
+	node_id = request.GET.get ('node_id', None)
+	root = root_xml
+	node_id = node_id.replace(TREE_ELEMENTID_PREFIX, '')
+
+	if node_id:
+		paths = node_id.split('-')
+		for path in paths:
+			root = root[int(path)]
+	result = getxmlTojson(root, 0)
+
+	return JsonResponse(json_result, safe=False)
+
+#---------------Create User Seleted Json File-----------------
+@csrf_exempt
+def usersel_json_file(request):
+	sel_ids = request.POST.getlist('sel_info[]')
+	result = getxmlTojson(root_xml, 0)
+
+	ele_array = []
+
+	for sel_id in sel_ids:
+		dir_root = root_xml
+		sel_id = sel_id.replace(TREE_ELEMENTID_PREFIX, '')
+
+		if sel_id:
+			paths = sel_id.split('-')
+			file_path = ""
+			for path in paths:
+				dir_root = dir_root[int(path)]
+				file_path += root_xml.attrib['name'] + "/" + dir_root.attrib['name']
+			ele_array.append({
+				"FileName" : dir_root.attrib['name'],
+				"FilePath" : file_path
+			})
+
+	with io.open('file_path.json', 'w', encoding='utf8') as outfile:
+		str_ = json.dumps(ele_array, indent=4, sort_keys=True, separators=(',', ': '), ensure_ascii=True)
+		outfile.write(to_unicode(str_))
+
+	return JsonResponse("Created JSON file Successfully!!", safe=False)

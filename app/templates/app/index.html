@@ -13,7 +13,11 @@
   		<script src="{% static 'jstree/jstree.min.js' %}"></script>
 	</head>
 	<body>
-		<div class="container-fx">
+		<div class="loading-container">
+		    <div class="loading"></div>
+		    <div id="loading-text">loading</div>
+		</div>
+		<div class="container-fx main_content" style="display:none;">
 			<div class="row">
 				<div class="col-md-4 tree_panel">
 					<div id="jstree"></div>
@@ -46,18 +50,25 @@
 					<span id="selected_file_size">Selected file Size: 0</span>
 					<span id="selected_files">Selected files: 0</span>
 				</div>
-				<div class="col-md-4" id="total_size"></div>
+				<div class="col-md-4" id="total_size">
+					<button type="button" class="btn btn-primary sub_btn">Submit</button>
+				</div>
 			</div>
 		</div>
 		<script>
 			$(function () {
 				var file_sel_size = 0;
 				var file_sel_cnt = 0;
+				var size_total = 0;
+				var cnt_total = 0;
 				var checkedRows = [];
+				var checked_submit = [];
 				var current_sel_tree;
+				var all_file_info = [];
+				var file_rpanecheck = [];
 
 				function get_checked(value) {
-					if (value['selected'] != false){
+					if (value['selected']){
 						return true;
 					}
 					else {
@@ -91,32 +102,14 @@
 					if(fsize == 0)
 						return fsize;
 					if(fsize < 1024)
+						return fsize.toFixed(3) + "B";
+					fsize = fsize / 1024;
+					if(fsize < 1024)
 						return fsize.toFixed(3) + "KB";
 					fsize = fsize / 1024;
 					if(fsize < 1024)
 						return fsize.toFixed(3) + "MB";
-					fsize = fsize / 1024;
-					if(fsize < 1024)
-						return fsize.toFixed(3) + "GB";
-					return (fsize / 1024).toFixed(3) + "TB";
-				}
-
-				function set_file_info(check_status, node_id) {
-					$.ajax({
-						url: '{% url "get_all_files" %}?node_id=' + node_id,
-						success: function(result){
-							if (check_status){
-								file_sel_size += result['selNode_size'];
-								file_sel_cnt += result['selfile_count'];
-							}
-							else {
-								file_sel_size -= result['selNode_size'];
-								file_sel_cnt -= result['selfile_count'];
-							}
-							$("#selected_file_size").html("Selected file size: " + get_exact_filesize(file_sel_size));
-							$("#selected_files").html("Selected files: " + file_sel_cnt);
-						}
-					});
+					return (fsize / 1024).toFixed(3) + "GB";
 				}
 
 				function display_rpanel(result) {
@@ -151,11 +144,18 @@
 											change_tr_setting(value);
 
 											if(value['type'] != "Directory"){
-												if( value['selected'] ){
+												if( value['selected'] ) {
+													file_rpanecheck.push(tmp_check);
+													checkedRows.push(tmp_check);
 													file_sel_size += parseInt(value['size']);
 													file_sel_cnt ++;
 												}
 												else {
+													var ind = file_rpanecheck.indexOf(tmp_check);
+
+													file_rpanecheck.splice(ind, 1);
+													ind = checkedRows.indexOf(tmp_check);
+													checkedRows.splice(ind, 1);
 													file_sel_size -= parseInt(value['size']);
 													file_sel_cnt --;
 												}
@@ -222,6 +222,32 @@
 						}
 					});
 				}
+
+				$('.sub_btn').click( function() {
+					var sub_array=[];
+					var req_array=[];
+
+					for (var i = 0; i < all_file_info.length; i ++) {
+						if (all_file_info[i]['type'] != 'Directory')
+							sub_array.push(all_file_info[i]);
+					}
+
+					for ( var i = 0; i < sub_array.length; i ++) {
+						if ($.inArray(sub_array[i]['id'], checkedRows) != -1){
+							req_array.push(sub_array[i]['id']);
+						}
+					}
+
+					$.ajax({
+					   type: "POST",
+					   data: {sel_info:req_array},
+					   url: '{% url "usersel_json_file" %}',
+					   success: function(response){
+					     alert(response);
+					   }
+					});
+				});
+
 				$('#jstree')
 					.jstree({
 					  	"core" : {
@@ -248,21 +274,29 @@
 						data.instance.toggle_node(data.node);
 						current_sel_tree = data.node.id;
 						$("#eventsTable tbody").empty();
-						//$("#total_size").html("Total Size: " + total_size);
-
-						if ($.inArray(data.node.id, checkedRows) != -1)
-							checked_state = true;
-
+						file_rpanecheck = [];
 						get_data_display(checked_state, data.node.id);
 				})
 				.on('loaded.jstree', function() {
 					$.jstree.reference('#jstree').select_node('tree-');
+					size_total = 0;
+					cnt_total = 0;
 					current_sel_tree = "tree-";
+					$('.loading-container').css('display', 'show');
+					$('.main_content').css('display', 'none');
 					$.ajax({
-						url: '{% url "get_all_files" %}?node_id=tree-',
+						url: '{% url "get_whole_structure" %}?node_id=tree-',
 						success: function(result){
-							$("#total_files_size").html("Total size: " + get_exact_filesize(result['selNode_size']));
-							$("#total_files_cnt").html("Totla files: " + result['selfile_count']);
+							$('.loading-container').css('display', 'none');
+							$('.main_content').css('display', 'show');
+							all_file_info = result;
+							$.each(result, function(key, value) {
+								if (value['id'] == current_sel_tree)
+									size_total = value['size'];
+								cnt_total += value['file_cnt'];
+							});
+							$("#total_files_size").html("Total size: " + get_exact_filesize(size_total));
+							$("#total_files_cnt").html("Totla files: " + cnt_total);
 						}
 					});
 				})
@@ -272,29 +306,41 @@
 					var check_status = data.node.state.checked;
 					var get_rpanl_checked=$("#" + check_triger_id).is(":checked");
 
+					file_sel_size = 0;
+					file_sel_cnt = 0;
+					checkedRows = [];
+					checked_submit = [];
+
+					for (var i = 0; i < check_list.length; i ++) {
+						var flag = false;
+						for(var j = 0 ; j < check_list.length; j ++)
+						{
+							if(check_list[j]['id'] == check_list[i]['parent'])
+							{
+								flag = true;
+								break;
+							}
+						}
+						if(!flag){
+							checked_submit.push(check_list[i]['id']);
+							file_sel_size += parseInt(all_file_info.find(ele=> ele.id == check_list[i]['id']).size);
+						}
+					}
+
+					for ( var i = 0; i < all_file_info.length; i ++) {
+						for ( var j = 0; j < checked_submit.length; j ++) {
+							if (all_file_info[i]['id'].includes(checked_submit[j])){
+								checkedRows.push(all_file_info[i]['id']);
+								file_sel_cnt += all_file_info[i]['file_cnt'];
+							}
+						}
+					}
+
 					if(data.node.state.checked != get_rpanl_checked)
 						$("#" + check_triger_id).trigger("click");
-					checkedRows = [];
 
-					set_file_info(check_status, data.node.id);
-
-					if(check_list.length) {
-						$.each(check_list, function(key, value) {
-							checkedRows.push(value.id);
-
-							$.ajax({
-								url: '{% url "get_listdata" %}?checked=true&node_id=' + value.id,
-								success: function(result){
-								  	$.each(result, function(key, value) {
-										checkedRows.push(value['id']);
-									});
-								}
-							});
-						});
-					}
-					else {
-						$("#selected_file_size").html("Selected file size: " + get_exact_filesize(file_sel_size));
-					}
+					$("#selected_file_size").html("Selected file size: " + get_exact_filesize(file_sel_size));
+					$("#selected_files").html("Selected files: " + file_sel_cnt);
 
 					if(current_sel_tree == data.node.id) {
 						get_data_display(check_status, data.node.id);
