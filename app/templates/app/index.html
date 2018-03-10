@@ -227,22 +227,22 @@
 					var sub_array=[];
 					var req_array=[];
 
-					for (var i = 0; i < all_file_info.length; i ++) {
-						if (all_file_info[i]['type'] != 'Directory')
-							sub_array.push(all_file_info[i]);
-					}
-
-					for ( var i = 0; i < sub_array.length; i ++) {
-						if ($.inArray(sub_array[i]['id'], checkedRows) != -1){
-							req_array.push(sub_array[i]['id']);
+					if (checked_submit.length == 0) {
+						if (file_rpanecheck.length == 0) {
+							return;
+						}
+						else {
+							checked_submit = checked_submit.concat(file_rpanecheck);
 						}
 					}
-
+					else {
+						checked_submit = checked_submit.concat(file_rpanecheck);
+					}
 					$('.loading-container').css('display', 'show');
 					$('.main_content').css('display', 'none');
 					$.ajax({
 					   type: "POST",
-					   data: {sel_info:req_array},
+					   data: {sel_info:checked_submit},
 					   url: '{% url "usersel_json_file" %}',
 					   success: function(response){
 		   					$('.loading-container').css('display', 'none');

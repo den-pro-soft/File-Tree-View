@@ -26,7 +26,7 @@ SECRET_KEY = '7hqwimeb8$5nx(oigku02dm_69(k@fnutzjw0&teeestaz)q)z'
 DEBUG = True
 
 ALLOWED_HOSTS = []
-
+DATA_UPLOAD_MAX_MEMORY_SIZE = 524288000000
 
 # Application definition
 

@@ -225,10 +225,9 @@ def usersel_json_file(request):
 				dir_root = dir_root[int(path)]
 				file_path += root_xml.attrib['name'] + "/" + dir_root.attrib['name']
 			ele_array.append({
-				"FileName" : dir_root.attrib['name'],
-				"FilePath" : file_path
+				"User Select Path" : file_path
 			})
-
+	import pdb; pdb.set_trace()
 	with io.open('file_path.json', 'w', encoding='utf8') as outfile:
 		str_ = json.dumps(ele_array, indent=4, sort_keys=True, separators=(',', ': '), ensure_ascii=True)
 		outfile.write(to_unicode(str_))
