@@ -219,17 +219,20 @@ def usersel_json_file(request):
 		sel_id = sel_id.replace(TREE_ELEMENTID_PREFIX, '')
 
 		if sel_id:
+			import pdb; pdb.set_trace()
 			paths = sel_id.split('-')
 			file_path = ""
 			for path in paths:
 				dir_root = dir_root[int(path)]
-				file_path += root_xml.attrib['name'] + "/" + dir_root.attrib['name']
+				file_path += "/" + dir_root.attrib['name']
 			ele_array.append({
-				"User Select Path" : file_path
+				"User Select Path" : root_xml.attrib['name'] + file_path
 			})
-	import pdb; pdb.set_trace()
 	with io.open('file_path.json', 'w', encoding='utf8') as outfile:
 		str_ = json.dumps(ele_array, indent=4, sort_keys=True, separators=(',', ': '), ensure_ascii=True)
 		outfile.write(to_unicode(str_))
+		response = HttpResponse(str_, content_type="application/json")
+		response['Content-Disposition'] = "attachment; filename=file_path.json"
+		return response
 
-	return JsonResponse("Created JSON file Successfully!!", safe=False)
+	return Http404
